@@ -1,0 +1,15 @@
+# AWS Dashboard Configuration
+aws:
+  dashboard_url: "${AWS_DASHBOARD_URL}"
+  environment: "prod-qs"
+  username: "${AWS_USERNAME}"
+  password: "${AWS_PASSWORD}"
+
+# PDF Configuration
+pdf:
+  output_path: "reports/"
+
+# Logging
+logging:
+  level: "INFO"
+  file: "logs/agent.log" 

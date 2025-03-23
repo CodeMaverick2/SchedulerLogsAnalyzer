@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+
+# Logs and Reports
+logs/
+reports/
+*.log
+*.pdf
+
+# Config (except example)
+config/config.yaml
+!config/config.example.yaml
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temp files
+.DS_Store
+Thumbs.db
+.cursorignore
+*.tmp
+*.bak
+=3.0.0
+
+# Playwright
+**/test-results/
+**/playwright-report/
+**/playwright/.cache/
+**/playwright-artifacts-*/ 
