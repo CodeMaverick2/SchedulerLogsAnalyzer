@@ -18,14 +18,16 @@ class ReportGenerator:
             today = datetime.now().strftime('%Y-%m-%d')
             
             # Calculate basic metrics
-            total_logs = len(self.df)
-            completed_logs = len(self.df[self.df['Status'] == 'schedulerLogCompleted'])
-            skipped_logs = total_logs - completed_logs
+            total_runs = len(self.df)
+            completed_runs = len(self.df[self.df['Status'] == 'schedulerLogCompleted'])
+            skipped_runs = total_runs - completed_runs
             
-            # Analyze completed logs
+            # Filter for data with duration > 0
+            df_filtered = self.df[(self.df['Duration'] > 0)]
+            # Analyze completed runs
             completed_df = self.df[self.df['Status'] == 'schedulerLogCompleted']
             if len(completed_df) == 0:
-                logging.warning("No completed logs found")
+                logging.warning("No completed runs found")
                 
             batch_runs = completed_df[completed_df['Total Tasks'] > 1]
             individual_runs = completed_df[completed_df['Total Tasks'] == 1]
@@ -46,42 +48,24 @@ class ReportGenerator:
             total_scheduled = completed_df['# Scheduled Tasks'].sum()
             total_unscheduled = completed_df['# Unscheduled Tasks'].sum()
             total_tasks = total_scheduled + total_unscheduled
-            scheduled_percent = (total_scheduled / total_tasks * 100) if total_tasks > 0 else 0
             
-            # Get skipped log examples with safety checks
+            # Get skipped run details
             skipped_df = self.df[self.df['Status'] != 'schedulerLogCompleted']
-            if len(skipped_df) >= 2:
-                skipped_examples = skipped_df[['Id', 'Start Time']].head(2)
-            else:
-                skipped_examples = pd.DataFrame({'Id': ['N/A', 'N/A'], 'Start Time': ['N/A', 'N/A']})
-                
-            # Additional Analysis
-            # 1. Peak Time Analysis
-            completed_df['Hour'] = pd.to_datetime(completed_df['Start Time']).dt.hour
-            peak_hour = completed_df['Hour'].mode().iloc[0]
-            tasks_in_peak_hour = len(completed_df[completed_df['Hour'] == peak_hour])
+            skipped_ids = skipped_df['Id'].tolist()[:5] if len(skipped_df) > 0 else ['N/A']
             
-            # 2. Efficiency Metrics
-            avg_tasks_per_batch = batch_runs['Total Tasks'].mean() if batch_count > 0 else 0
-            efficiency_ratio = (total_tasks / completed_logs) if completed_logs > 0 else 0
-            
-            # 3. Duration Distribution
-            duration_stats = completed_df['Duration'].describe()
-            
-            # 4. Success Rate Trends
-            hourly_success_rate = (completed_df.groupby('Hour').size() / 
-                                 self.df.groupby(pd.to_datetime(self.df['Start Time']).dt.hour).size() * 100)
-            best_performance_hour = hourly_success_rate.idxmax()
+            # Get failed run details if available
+            failed_df = self.df[self.df['Status'] == 'schedulerLogFailed'] if 'schedulerLogFailed' in self.df['Status'].unique() else pd.DataFrame()
+            failed_ids = failed_df['Id'].tolist()[:5] if len(failed_df) > 0 else ['N/A']
             
             # Enhanced Task Analysis
-            scheduled_df = completed_df[completed_df['# Scheduled Tasks'] > 0]
-            unscheduled_df = completed_df[completed_df['# Unscheduled Tasks'] > 0]
+            # Filter for rows with Duration > 0
+            scheduled_df = df_filtered[df_filtered['# Scheduled Tasks'] > 0]
+            unscheduled_df = df_filtered[df_filtered['# Unscheduled Tasks'] > 0]
             
             # Scheduled Tasks Analysis
             scheduled_metrics = {
                 'total': total_scheduled,
                 'avg_per_batch': scheduled_df['# Scheduled Tasks'].mean() if len(scheduled_df) > 0 else 0,
-                'max_in_batch': scheduled_df['# Scheduled Tasks'].max() if len(scheduled_df) > 0 else 0,
                 'batches_with_scheduled': len(scheduled_df),
                 'avg_duration': scheduled_df['Duration'].mean() if len(scheduled_df) > 0 else 0
             }
@@ -90,41 +74,61 @@ class ReportGenerator:
             unscheduled_metrics = {
                 'total': total_unscheduled,
                 'avg_per_batch': unscheduled_df['# Unscheduled Tasks'].mean() if len(unscheduled_df) > 0 else 0,
-                'max_in_batch': unscheduled_df['# Unscheduled Tasks'].max() if len(unscheduled_df) > 0 else 0,
                 'batches_with_unscheduled': len(unscheduled_df),
                 'avg_duration': unscheduled_df['Duration'].mean() if len(unscheduled_df) > 0 else 0
             }
+            
+            # Daily Insights
+            insights = []
+            
+            # Insight 1: Task ratio (scheduled vs unscheduled)
+            if total_tasks > 0:
+                scheduled_percent = (total_scheduled / total_tasks) * 100
+                unscheduled_percent = (total_unscheduled / total_tasks) * 100
+                insights.append(f"Scheduled vs Unscheduled Ratio: {scheduled_percent:.1f}% / {unscheduled_percent:.1f}%")
+            
+            # Insight 3: Completion Rate
+            completion_rate = (completed_runs / total_runs * 100) if total_runs > 0 else 0
+            insights.append(f"Run Completion Rate: {completion_rate:.1f}%")
+            
+            # Insight 4: Average Tasks Per Run
+            avg_tasks_per_run = total_tasks / completed_runs if completed_runs > 0 else 0
+            insights.append(f"Average Tasks Per Run: {avg_tasks_per_run:.1f}")
+            
+            # Insight 5: Duration metrics
+            insights.append(f"Average Run Duration: {avg_batch_duration:.2f} minutes")
+            
+            # Insight 7: Run efficiency 
+            if completed_runs > 0:
+                avg_scheduled_per_run = total_scheduled / completed_runs
+                avg_unscheduled_per_run = total_unscheduled / completed_runs
+                insights.append(f"Avg Scheduled Tasks Per Run: {avg_scheduled_per_run:.1f}")
+                insights.append(f"Avg Unscheduled Tasks Per Run: {avg_unscheduled_per_run:.1f}")
 
-            report = f"""Scheduler Log Analysis Report
+            report = f"""Scheduler Run Analysis Report
 Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
-Log Distribution Details
-Total Logs: {total_logs}
-Completed Logs: {completed_logs}
-Skipped Logs: {skipped_logs}
-Success Rate: {(completed_logs/total_logs*100):.1f}%
+Run Distribution Details
+Total Runs: {total_runs}
+Completed Runs: {completed_runs}
+Skipped Runs: {skipped_runs}
 
-Task Distribution Details
-Total Tasks Processed: {total_tasks}
-
-Scheduled Tasks Analysis
-Total Scheduled Tasks: {scheduled_metrics['total']}
-Average Scheduled Tasks per Batch: {scheduled_metrics['avg_per_batch']:.1f}
-Maximum Scheduled Tasks in a Batch: {scheduled_metrics['max_in_batch']}
-Number of Batches with Scheduled Tasks: {scheduled_metrics['batches_with_scheduled']}
-Average Duration for Scheduled Batches: {scheduled_metrics['avg_duration']:.2f} minutes
-
-Unscheduled Tasks Analysis
-Total Unscheduled Tasks: {unscheduled_metrics['total']}
-Average Unscheduled Tasks per Batch: {unscheduled_metrics['avg_per_batch']:.1f}
-Maximum Unscheduled Tasks in a Batch: {unscheduled_metrics['max_in_batch']}
-Number of Batches with Unscheduled Tasks: {unscheduled_metrics['batches_with_unscheduled']}
-Average Duration for Unscheduled Batches: {unscheduled_metrics['avg_duration']:.2f} minutes
+Daily Insights
+{insights[0]}
+{insights[1]}
+{insights[2]}
+{insights[3]}
+{insights[4]}
+{insights[5]}
 
 Batch Processing Summary
 Total Batch Runs: {batch_count}
 Average Batch Duration: {avg_batch_duration:.2f} minutes
 Maximum Batch Size: {max_batch['Total Tasks']} tasks (ID: {max_batch['Id']})
+Maximum Duration: {max_batch['Duration']:.2f} minutes (ID: {max_batch['Id']})
+Minimum Duration: {min_batch['Duration']:.2f} minutes (ID: {min_batch['Id']})
+Skipped IDs: {', '.join(skipped_ids[:5])}
+Failed IDs: {', '.join(failed_ids[:5])}
 """
 
             return {"content": report}

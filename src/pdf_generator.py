@@ -87,7 +87,7 @@ class PDFGenerator:
             if not line:
                 continue
                 
-            if line == 'Scheduler Log Analysis Report':
+            if line == 'Scheduler Run Analysis Report':
                 sections['title'] = line
             elif line.startswith('Date:'):
                 sections['date'] = line
@@ -134,6 +134,7 @@ class PDFGenerator:
                 if section_name not in ['title', 'date']:
                     story.append(Paragraph(section_name, self.styles['SectionHeader']))
                     
+                    # All sections use key-value table format
                     data = [['Metric', 'Value']]
                     for item in section_data:
                         if ':' in item:
@@ -141,10 +142,12 @@ class PDFGenerator:
                             data.append([metric.strip(), value.strip()])
                     
                     if len(data) > 1:
+                        # Apply the same styling for all sections
                         table = Table(data, colWidths=[280, 200])
                         table.setStyle(self.table_style)
                         story.append(table)
-                        story.append(Spacer(1, 20))
+                    
+                    story.append(Spacer(1, 20))
             
             doc.build(story)
             return True
