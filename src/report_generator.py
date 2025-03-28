@@ -105,6 +105,28 @@ class ReportGenerator:
                 insights.append(f"Avg Scheduled Tasks Per Run: {avg_scheduled_per_run:.1f}")
                 insights.append(f"Avg Unscheduled Tasks Per Run: {avg_unscheduled_per_run:.1f}")
 
+            # Check if skipped IDs and failed IDs are the same
+            same_ids = set(skipped_ids) == set(failed_ids)
+            
+            # Format the Batch Processing Summary section based on whether IDs are the same
+            if same_ids:
+                batch_summary = f"""Batch Processing Summary
+Total Batch Runs: {batch_count}
+Average Batch Duration: {avg_batch_duration:.2f} minutes
+Maximum Batch Size: {max_batch['Total Tasks']} tasks (ID: {max_batch['Id']})
+Maximum Duration: {max_batch['Duration']:.2f} minutes (ID: {max_batch['Id']})
+Minimum Duration: {min_batch['Duration']:.2f} minutes (ID: {min_batch['Id']})
+Problem IDs: {', '.join(skipped_ids[:5])}"""
+            else:
+                batch_summary = f"""Batch Processing Summary
+Total Batch Runs: {batch_count}
+Average Batch Duration: {avg_batch_duration:.2f} minutes
+Maximum Batch Size: {max_batch['Total Tasks']} tasks (ID: {max_batch['Id']})
+Maximum Duration: {max_batch['Duration']:.2f} minutes (ID: {max_batch['Id']})
+Minimum Duration: {min_batch['Duration']:.2f} minutes (ID: {min_batch['Id']})
+Skipped IDs: {', '.join(skipped_ids[:5])}
+Failed IDs: {', '.join(failed_ids[:5])}"""
+
             report = f"""Scheduler Run Analysis Report
 Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
@@ -121,14 +143,7 @@ Daily Insights
 {insights[4]}
 {insights[5]}
 
-Batch Processing Summary
-Total Batch Runs: {batch_count}
-Average Batch Duration: {avg_batch_duration:.2f} minutes
-Maximum Batch Size: {max_batch['Total Tasks']} tasks (ID: {max_batch['Id']})
-Maximum Duration: {max_batch['Duration']:.2f} minutes (ID: {max_batch['Id']})
-Minimum Duration: {min_batch['Duration']:.2f} minutes (ID: {min_batch['Id']})
-Skipped IDs: {', '.join(skipped_ids[:5])}
-Failed IDs: {', '.join(failed_ids[:5])}
+{batch_summary}
 """
 
             return {"content": report}
